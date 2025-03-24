@@ -1,0 +1,7 @@
+<%- include('./partials/header') %>
+<h1>Store</h1>
+<ul>
+  <% storeItems.forEach(item => { %>
+    <li><%= item.item_name %> - <%= item.price %> points</li>
+  <% }) %>
+</ul>

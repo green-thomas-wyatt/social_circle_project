@@ -1,0 +1,7 @@
+<%- include('./partials/header') %>
+<h1>Characters</h1>
+<ul>
+  <% characters.forEach(character => { %>
+    <li><%= character.name %>: Likes Compliment: <%= character.likes_compliment %>, Likes Help: <%= character.likes_help %>, Likes Invite: <%= character.likes_invite %></li>
+  <% }) %>
+</ul>

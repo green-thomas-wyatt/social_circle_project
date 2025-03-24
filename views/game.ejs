@@ -1,0 +1,50 @@
+<%- include('./partials/header') %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Circles Game</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .circle { display: inline-block; width: 250px; padding: 20px; border: 2px solid black; margin: 10px; }
+        .character { font-size: 18px; font-weight: bold; margin: 5px; }
+        .actions button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <% - include('./partials/header')%>  
+
+    <h1>Welcome, <%= username %>!</h1>
+    <h2>Select a circle and perform an action:</h2>
+
+    <div id="game-container">
+        <% circles.forEach((circle, index) => { %>
+            <div class="circle" data-circle-id="<%= circle.circle_id %>">
+                <h3>Circle <%= index + 1 %></h3>
+                <% circle.characters.forEach(character => { %>
+                    <p class="character"><%= character.name %> (Happiness: <%= character.happiness %>)</p>
+                <% }); %>
+                <div class="actions">
+                    <button onclick="performAction('<%= circle.circle_id %>', 'compliment')">Give Compliment</button>
+                    <button onclick="performAction('<%= circle.circle_id %>', 'help')">Offer Help</button>
+                    <button onclick="performAction('<%= circle.circle_id %>', 'invite')">Invite to Event</button>     
+                </div>
+            </div>
+        <% }); %>
+    </div>
+
+    <script>
+        function performAction(circleId, actionType) {
+            $.post('/game/action', { circle_id: circleId, action_type: actionType }, function(response) {
+                alert(response.message);
+                location.reload(); // Refresh game state
+            }).fail(function(err) {
+                alert("Error performing action.");
+            });
+        }
+    </script>
+
+</body>
+</html>

@@ -7,10 +7,65 @@ require('dotenv').config();
 
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey";
 
+// Middleware to check authentication
+const authenticate = (req, res, next) => {
+  const token = req.cookies.token; // Read token from cookies
+  if (!token) return res.redirect('/login'); // Redirect to login if no token
+
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) return res.redirect('/login'); // Invalid token -> go to login
+    req.user = decoded; // Attach user info to request
+    next();
+  });
+};
+
+// Home Route
+router.get('/', (req, res) => {
+  res.render('index');  // Render the home page (index.ejs)
+});
+
+
 // Home Page
-router.get('/', function(req, res, next) {
+router.get('/', function(req, res) {
   res.render('index', { title: 'Express' });
 });
+
+// Store Page Route
+router.get('/store', authenticate, (req, res) => {
+  // Fetch store items from the database
+  connection.query('SELECT * FROM store_items', (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+    res.render('store', { username: req.user.username, storeItems: results });
+  });
+});
+
+// Leaderboard Page Route
+router.get('/leaderboard', authenticate, (req, res) => {
+  // Fetch top 10 users
+  connection.query('SELECT * FROM leaderboard ORDER BY total_points DESC LIMIT 10', (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+    res.render('leaderboard', { username: req.user.username, leaderboard: results });
+  });
+});
+
+// Characters Page Route
+router.get('/characters', authenticate, (req, res) => {
+  // Fetch characters from the database
+  connection.query('SELECT * FROM characters', (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+    res.render('characters', { username: req.user.username, characters: results });
+  });
+});
+
+// Profile Page Route
+router.get('/profile', authenticate, (req, res) => {
+  // Fetch user's profile data from the database
+  connection.query('SELECT * FROM users WHERE user_id = ?', [req.user.userId], (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+    res.render('profile', { username: req.user.username, userData: results[0] });
+  });
+});
+
 
 // Signup Route
 router.post('/signup', async (req, res) => {
@@ -28,7 +83,12 @@ router.post('/signup', async (req, res) => {
       if (err) {
         return res.status(500).json({ message: "User already exists or DB error.", error: err });
       }
-      res.status(201).json({ message: "User created successfully." });
+
+      // Automatically log in after signing up
+      const token = jwt.sign({ userId: result.insertId, username, role: "logged_in" }, SECRET_KEY, { expiresIn: "1h" });
+
+      res.cookie("token", token, { httpOnly: true, maxAge: 3600000 }); // Securely store token in a cookie
+      res.redirect('/game'); // Redirect to main game page
     });
   } catch (error) {
     res.status(500).json({ message: "Error hashing password.", error });
@@ -55,14 +115,96 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    const token = jwt.sign({ userId: user.user_id, username: user.username, role: user.role }, SECRET_KEY, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign({ userId: user.user_id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
 
-    res.json({ message: "Login successful.", token });
+    res.cookie("token", token, { httpOnly: true, maxAge: 3600000 }); // Securely store token in a cookie
+    
+    // ✅ Fix: Send JSON response instead of redirecting
+    res.json({ success: true, redirectUrl: "/game" });
   });
 });
 
 
+// Logout Route
+router.get('/logout', (req, res) => {
+  res.clearCookie("token");  // Clear the JWT token from the cookie
+  res.redirect('/');  // Redirect to the home page (index.ejs)
+});
+
+
+
+// **Game Page - Protected Route**
+router.get('/game', authenticate, (req, res) => {
+  // Fetch current circles and characters
+  const query = `
+    SELECT c.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite
+    FROM circles c
+    JOIN characters ch ON ch.character_id IN (c.character_1, c.character_2, c.character_3)
+    ORDER BY c.circle_id;
+  `;
+
+  connection.query(query, (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+
+    // Group characters by circle
+    let circles = {};
+    results.forEach(row => {
+      if (!circles[row.circle_id]) {
+        circles[row.circle_id] = { circle_id: row.circle_id, characters: [] };
+      }
+      circles[row.circle_id].characters.push(row);
+    });
+
+    res.render('game', { username: req.user.username, circles: Object.values(circles) });
+  });
+});
+
+// **Handle User Action (Compliment, Help, Invite)**
+router.post('/game/action', authenticate, (req, res) => {
+  const { circle_id, action_type } = req.body;
+  if (!circle_id || !action_type) {
+    return res.status(400).json({ message: "Missing parameters." });
+  }
+
+  // Fetch characters in the circle
+  const query = `
+    SELECT ch.character_id, ch.likes_compliment, ch.likes_help, ch.likes_invite
+    FROM circles c
+    JOIN characters ch ON ch.character_id IN (c.character_1, c.character_2, c.character_3)
+    WHERE c.circle_id = ?;
+  `;
+
+  connection.query(query, [circle_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+
+    let updates = [];
+    results.forEach(character => {
+      let happinessChange = 0;
+      if (action_type === 'compliment') happinessChange = character.likes_compliment;
+      if (action_type === 'help') happinessChange = character.likes_help;
+      if (action_type === 'invite') happinessChange = character.likes_invite;
+
+      updates.push([character.character_id, req.user.userId, circle_id, action_type, happinessChange]);
+    });
+
+    // Insert actions and update happiness scores
+    const actionQuery = "INSERT INTO user_actions (user_id, circle_id, action_type) VALUES ?";
+    const happinessQuery = `
+      INSERT INTO happiness_scores (character_id, round_number, happiness)
+      VALUES ?
+      ON DUPLICATE KEY UPDATE happiness = happiness + VALUES(happiness);
+    `;
+
+    connection.query(actionQuery, [updates.map(u => [req.user.userId, u[1], u[3]])], (err) => {
+      if (err) return res.status(500).json({ message: "Error recording action.", error: err });
+
+      connection.query(happinessQuery, [updates.map(u => [u[0], 1, u[4]])], (err) => {
+        if (err) return res.status(500).json({ message: "Error updating happiness.", error: err });
+
+        res.json({ message: "Action recorded successfully." });
+      });
+    });
+  });
+});
 
 module.exports = router;
