@@ -3,6 +3,8 @@ var router = express.Router();
 var connection = require('../database/connection'); 
 var bcrypt = require('bcryptjs');
 var jwt = require('jsonwebtoken');
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
 require('dotenv').config();
 
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey";
@@ -41,12 +43,27 @@ router.get('/store', authenticate, (req, res) => {
 
 // Leaderboard Page Route
 router.get('/leaderboard', authenticate, (req, res) => {
-  // Fetch top 10 users
-  connection.query('SELECT * FROM leaderboard ORDER BY total_points DESC LIMIT 10', (err, results) => {
-    if (err) return res.status(500).json({ message: "Database error.", error: err });
-    res.render('leaderboard', { username: req.user.username, leaderboard: results });
+  const query = `
+  SELECT username, points AS total_points
+  FROM users
+  ORDER BY points DESC
+  LIMIT 10
+`;
+
+
+  connection.query(query, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).send("An error occurred while fetching leaderboard data.");
+    }
+
+    res.render('leaderboard', {
+      username: req.user.username,
+      leaderboard: results
+    });
   });
 });
+
 
 // Characters Page Route
 router.get('/characters', authenticate, (req, res) => {
@@ -206,5 +223,60 @@ router.post('/game/action', authenticate, (req, res) => {
     });
   });
 });
+
+
+
+//UPDATE POINTS
+router.post('/updatePoints', authenticate, (req, res) => {
+  const { average } = req.body;
+  console.log('Received Average:', average);
+  console.log('Authenticated User:', req.user);
+
+
+
+  // Extract userId from JWT (from req.user)
+  const userId = req.user.userId;
+
+  if (!userId) {
+    return res.status(400).json({ message: 'User not logged in' });
+  }
+  
+  // Convert average to a number
+  const avgPoints = Number(average);
+
+  // Check if average is a valid number
+  if (isNaN(avgPoints)) {
+    return res.status(400).json({ message: 'Invalid points value' });
+  }
+
+  // SQL query to update the user's points
+  const query = `
+    UPDATE users 
+    SET points = points + ? 
+    WHERE user_id = ?
+  `;
+
+  connection.query(query, [avgPoints, userId], (err, result) => {
+    if (err) {
+      console.error('Error updating points:', err); // Log the actual error here
+      return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+
+    // If no rows were affected, something went wrong (e.g., no user found)
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'Points updated successfully' });
+  });
+});
+
+
+
+
+
+
+
+
 
 module.exports = router;

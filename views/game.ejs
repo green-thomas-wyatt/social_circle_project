@@ -46,6 +46,26 @@
       }
     }
 
+    // Calculate average happiness after the round
+    let allHappiness = [];
+    gameCircles.forEach(c => {
+      c.characters.forEach(character => {
+        allHappiness.push(character.happiness || 0);
+      });
+    });
+    const averageHappiness = allHappiness.reduce((a, b) => a + b, 0) / allHappiness.length;
+
+
+
+console.log('Average Happiness:', averageHappiness); // Add this line for debugging
+$.post('/updatePoints', { average: averageHappiness }, function(response) {
+  console.log(response.message); // Optional
+});
+
+    
+
+    
+
     function renderGame() {
       const container = $("#game-container");
       container.empty();
@@ -69,41 +89,57 @@
     }
 
     function performAction(circleId, actionType) {
-
       const circle = gameCircles.find(c => c.circle_id == circleId);
       if (!circle) {
         console.error("Circle not found:", circleId);
         return;
       }
-      // update each characters happiness in the selected circle
+    
+      // Update each character's happiness in the selected circle
       circle.characters.forEach(character => {
         if (character.happiness === undefined || character.happiness === null) {
           character.happiness = 0;
         }
-
+    
         const effectColumn = `likes_${actionType}`;
         const effect = Number(character[effectColumn]) || 0;
         character.happiness += effect;
       });
-
-      // gets characters
+    
+      // Gets all characters
       let allCharacters = [];
       gameCircles.forEach(c => {
         allCharacters = allCharacters.concat(c.characters);
       });
-      // shuffles circles
+    
+      // Shuffle characters
       shuffleArray(allCharacters);
-
-      // reassigns characters
+    
+      // Reassign characters to new circles
       gameCircles = [
         { circle_id: 'circle1', characters: allCharacters.slice(0, 3) },
         { circle_id: 'circle2', characters: allCharacters.slice(3, 6) },
         { circle_id: 'circle3', characters: allCharacters.slice(6, 9) }
       ];
-
+    
+      // Render updated game state
       renderGame();
-
+    
+      // Calculate average happiness for points update
+      let allHappiness = [];
+      gameCircles.forEach(c => {
+        c.characters.forEach(character => {
+          allHappiness.push(character.happiness || 0);
+        });
+      });
+      const averageHappiness = allHappiness.reduce((a, b) => a + b, 0) / allHappiness.length;
+    
+      // Send average happiness to the backend to update points
+      $.post('/updatePoints', { average: averageHappiness }, function(response) {
+        console.log(response.message); // Optional
+      });
     }
+    
 
     $(document).ready(function(){
       gameCircles.forEach(circle => {
