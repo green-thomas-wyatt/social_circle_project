@@ -36,14 +36,86 @@
     </div>
 
     <script>
-        function performAction(circleId, actionType) {
-            $.post('/game/action', { circle_id: circleId, action_type: actionType }, function(response) {
-                alert(response.message);
-                location.reload(); // Refresh game state
-            }).fail(function(err) {
-                alert("Error performing action.");
-            });
+
+    let gameCircles = <%- JSON.stringify(circles) %>;
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const rand = Math.floor(Math.random() * (i + 1));
+        [array[i], array[rand]] = [array[rand], array[i]];
+      }
+    }
+
+    function renderGame() {
+      const container = $("#game-container");
+      container.empty();
+      gameCircles.forEach((circle, index) => {
+        let circleHtml = `<div class="circle" data-circle-id="${circle.circle_id}">
+          <h3>Circle ${index + 1}</h3>`;
+        circle.characters.forEach(character => {
+          let happiness = (character.happiness !== undefined && character.happiness !== null)
+            ? character.happiness
+            : 0;
+          circleHtml += `<p class="character">${character.name} (Happiness: ${happiness})</p>`;
+        });
+        circleHtml += `<div class="actions">
+            <button onclick="performAction('${circle.circle_id}', 'compliment')">Give Compliment</button>
+            <button onclick="performAction('${circle.circle_id}', 'help')">Offer Help</button>
+            <button onclick="performAction('${circle.circle_id}', 'invite')">Invite to Event</button>
+          </div>
+        </div>`;
+        container.append(circleHtml);
+      });
+    }
+
+    function performAction(circleId, actionType) {
+
+      const circle = gameCircles.find(c => c.circle_id == circleId);
+      if (!circle) {
+        console.error("Circle not found:", circleId);
+        return;
+      }
+      // update each characters happiness in the selected circle
+      circle.characters.forEach(character => {
+        if (character.happiness === undefined || character.happiness === null) {
+          character.happiness = 0;
         }
+
+        const effectColumn = `likes_${actionType}`;
+        const effect = Number(character[effectColumn]) || 0;
+        character.happiness += effect;
+      });
+
+      // gets characters
+      let allCharacters = [];
+      gameCircles.forEach(c => {
+        allCharacters = allCharacters.concat(c.characters);
+      });
+      // shuffles circles
+      shuffleArray(allCharacters);
+
+      // reassigns characters
+      gameCircles = [
+        { circle_id: 'circle1', characters: allCharacters.slice(0, 3) },
+        { circle_id: 'circle2', characters: allCharacters.slice(3, 6) },
+        { circle_id: 'circle3', characters: allCharacters.slice(6, 9) }
+      ];
+
+      renderGame();
+
+    }
+
+    $(document).ready(function(){
+      gameCircles.forEach(circle => {
+        circle.characters.forEach(character => {
+          if (character.happiness === undefined || character.happiness === null) {
+            character.happiness = 0;
+          }
+        });
+      });
+      renderGame();
+    });
+    
     </script>
 
 </body>
