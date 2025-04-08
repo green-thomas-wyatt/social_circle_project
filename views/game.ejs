@@ -11,10 +11,11 @@
         .circle { display: inline-block; width: 250px; padding: 20px; border: 2px solid black; margin: 10px; }
         .character { font-size: 18px; font-weight: bold; margin: 5px; }
         .actions button { margin: 5px; padding: 10px; }
+        .global-actions { margin: 20px; }
     </style>
 </head>
 <body>
-    <% - include('./partials/header')%>  
+    <% - include('./partials/header') %>  
 
     <h1>Welcome, <%= username %>!</h1>
     <h2>Select a circle and perform an action:</h2>
@@ -29,130 +30,55 @@
                 <div class="actions">
                     <button onclick="performAction('<%= circle.circle_id %>', 'compliment')">Give Compliment</button>
                     <button onclick="performAction('<%= circle.circle_id %>', 'help')">Offer Help</button>
-                    <button onclick="performAction('<%= circle.circle_id %>', 'invite')">Invite to Event</button>     
+                    <button onclick="performAction('<%= circle.circle_id %>', 'invite')">Invite to Event</button>  
                 </div>
             </div>
         <% }); %>
     </div>
 
+    <div class="global-actions">
+        <button onclick="resetHappiness()">🔁 Reset All Happiness</button>
+    </div>
+
     <script>
-
-    let gameCircles = <%- JSON.stringify(circles) %>;
-
-    function shuffleArray(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const rand = Math.floor(Math.random() * (i + 1));
-        [array[i], array[rand]] = [array[rand], array[i]];
-      }
-    }
-
-    // Calculate average happiness after the round
-    let allHappiness = [];
-    gameCircles.forEach(c => {
-      c.characters.forEach(character => {
-        allHappiness.push(character.happiness || 0);
-      });
-    });
-    const averageHappiness = allHappiness.reduce((a, b) => a + b, 0) / allHappiness.length;
-
-
-
-console.log('Average Happiness:', averageHappiness); // Add this line for debugging
-$.post('/updatePoints', { average: averageHappiness }, function(response) {
-  console.log(response.message); // Optional
-});
-
-    
-
-    
-
-    function renderGame() {
-      const container = $("#game-container");
-      container.empty();
-      gameCircles.forEach((circle, index) => {
-        let circleHtml = `<div class="circle" data-circle-id="${circle.circle_id}">
-          <h3>Circle ${index + 1}</h3>`;
-        circle.characters.forEach(character => {
-          let happiness = (character.happiness !== undefined && character.happiness !== null)
-            ? character.happiness
-            : 0;
-          circleHtml += `<p class="character">${character.name} (Happiness: ${happiness})</p>`;
-        });
-        circleHtml += `<div class="actions">
-            <button onclick="performAction('${circle.circle_id}', 'compliment')">Give Compliment</button>
-            <button onclick="performAction('${circle.circle_id}', 'help')">Offer Help</button>
-            <button onclick="performAction('${circle.circle_id}', 'invite')">Invite to Event</button>
-          </div>
-        </div>`;
-        container.append(circleHtml);
-      });
-    }
-
     function performAction(circleId, actionType) {
-      const circle = gameCircles.find(c => c.circle_id == circleId);
-      if (!circle) {
-        console.error("Circle not found:", circleId);
-        return;
-      }
-    
-      // Update each character's happiness in the selected circle
-      circle.characters.forEach(character => {
-        if (character.happiness === undefined || character.happiness === null) {
-          character.happiness = 0;
+      $.post('/game/action', {
+        circle_id: circleId,
+        action_type: actionType
+      }, function(response) {
+        console.log("Action result:", response.message);
+
+        // After action + shuffle, reload from server
+        location.reload();
+      });
+
+      // Also send happiness average for point tracking
+      const happinessElements = document.querySelectorAll('.character');
+      let happinessValues = [];
+
+      happinessElements.forEach(el => {
+        const match = el.innerText.match(/\(Happiness: (-?\d+)\)/);
+        if (match) {
+          happinessValues.push(parseInt(match[1]));
         }
-    
-        const effectColumn = `likes_${actionType}`;
-        const effect = Number(character[effectColumn]) || 0;
-        character.happiness += effect;
       });
-    
-      // Gets all characters
-      let allCharacters = [];
-      gameCircles.forEach(c => {
-        allCharacters = allCharacters.concat(c.characters);
-      });
-    
-      // Shuffle characters
-      shuffleArray(allCharacters);
-    
-      // Reassign characters to new circles
-      gameCircles = [
-        { circle_id: 'circle1', characters: allCharacters.slice(0, 3) },
-        { circle_id: 'circle2', characters: allCharacters.slice(3, 6) },
-        { circle_id: 'circle3', characters: allCharacters.slice(6, 9) }
-      ];
-    
-      // Render updated game state
-      renderGame();
-    
-      // Calculate average happiness for points update
-      let allHappiness = [];
-      gameCircles.forEach(c => {
-        c.characters.forEach(character => {
-          allHappiness.push(character.happiness || 0);
+
+      if (happinessValues.length > 0) {
+        const sum = happinessValues.reduce((a, b) => a + b, 0);
+        const average = sum / happinessValues.length;
+
+        $.post('/updatePoints', { average }, function(response) {
+          console.log(response.message);
         });
-      });
-      const averageHappiness = allHappiness.reduce((a, b) => a + b, 0) / allHappiness.length;
-    
-      // Send average happiness to the backend to update points
-      $.post('/updatePoints', { average: averageHappiness }, function(response) {
-        console.log(response.message); // Optional
+      }
+    }
+
+    function resetHappiness() {
+      $.post('/resetHappiness', {}, function(response) {
+        alert(response.message);
+        location.reload();
       });
     }
-    
-
-    $(document).ready(function(){
-      gameCircles.forEach(circle => {
-        circle.characters.forEach(character => {
-          if (character.happiness === undefined || character.happiness === null) {
-            character.happiness = 0;
-          }
-        });
-      });
-      renderGame();
-    });
-    
     </script>
-
 </body>
 </html>

@@ -101,16 +101,55 @@ router.post('/signup', async (req, res) => {
         return res.status(500).json({ message: "User already exists or DB error.", error: err });
       }
 
-      // Automatically log in after signing up
-      const token = jwt.sign({ userId: result.insertId, username, role: "logged_in" }, SECRET_KEY, { expiresIn: "1h" });
+      const userId = result.insertId;
 
-      res.cookie("token", token, { httpOnly: true, maxAge: 3600000 }); // Securely store token in a cookie
-      res.redirect('/game'); // Redirect to main game page
+      // Fetch character IDs dynamically from DB
+      connection.query("SELECT character_id FROM characters", (err, charResults) => {
+        if (err) {
+          console.error("Error fetching characters for new user:", err);
+          return res.status(500).json({ message: "Error initializing user data." });
+        }
+
+        const characterIds = charResults.map(c => c.character_id);
+
+        // Shuffle character IDs
+        for (let i = characterIds.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [characterIds[i], characterIds[j]] = [characterIds[j], characterIds[i]];
+        }
+
+        const userCircleData = [];
+        for (let i = 0; i < 3; i++) {
+          const circleCharacters = characterIds.slice(i * 3, i * 3 + 3);
+          circleCharacters.forEach(charId => {
+            userCircleData.push([userId, i + 1, charId]);
+          });
+        }
+
+        const insertCirclesQuery = `
+          INSERT INTO user_circles (user_id, circle_id, character_id)
+          VALUES ?
+        `;
+
+        connection.query(insertCirclesQuery, [userCircleData], (err) => {
+          if (err) {
+            console.error("Error inserting user circles:", err);
+            return res.status(500).json({ message: "Error creating circles." });
+          }
+
+          // Success — create JWT and redirect
+          const token = jwt.sign({ userId, username, role: "logged_in" }, SECRET_KEY, { expiresIn: "1h" });
+
+          res.cookie("token", token, { httpOnly: true, maxAge: 3600000 });
+          res.redirect('/game');
+        });
+      });
     });
   } catch (error) {
     res.status(500).json({ message: "Error hashing password.", error });
   }
 });
+
 
 // Login Route
 router.post('/login', (req, res) => {
@@ -152,18 +191,22 @@ router.get('/logout', (req, res) => {
 
 // **Game Page - Protected Route**
 router.get('/game', authenticate, (req, res) => {
-  // Fetch current circles and characters
+  const userId = req.user.userId;
+
   const query = `
-    SELECT c.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite
-    FROM circles c
-    JOIN characters ch ON ch.character_id IN (c.character_1, c.character_2, c.character_3)
-    ORDER BY c.circle_id;
+    SELECT uc.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite,
+           IFNULL(hs.happiness, 0) AS happiness
+    FROM user_circles uc
+    JOIN characters ch ON uc.character_id = ch.character_id
+    LEFT JOIN happiness_scores hs 
+      ON hs.character_id = ch.character_id AND hs.user_id = ? AND hs.round_number = 1
+    WHERE uc.user_id = ?
+    ORDER BY uc.circle_id;
   `;
 
-  connection.query(query, (err, results) => {
+  connection.query(query, [userId, userId], (err, results) => {
     if (err) return res.status(500).json({ message: "Database error.", error: err });
 
-    // Group characters by circle
     let circles = {};
     results.forEach(row => {
       if (!circles[row.circle_id]) {
@@ -176,53 +219,95 @@ router.get('/game', authenticate, (req, res) => {
   });
 });
 
-// **Handle User Action (Compliment, Help, Invite)**
+
+
 router.post('/game/action', authenticate, (req, res) => {
   const { circle_id, action_type } = req.body;
+  const userId = req.user.userId;
+
   if (!circle_id || !action_type) {
     return res.status(400).json({ message: "Missing parameters." });
   }
 
-  // Fetch characters in the circle
-  const query = `
+  const fetchCharactersQuery = `
     SELECT ch.character_id, ch.likes_compliment, ch.likes_help, ch.likes_invite
-    FROM circles c
-    JOIN characters ch ON ch.character_id IN (c.character_1, c.character_2, c.character_3)
-    WHERE c.circle_id = ?;
+    FROM user_circles uc
+    JOIN characters ch ON uc.character_id = ch.character_id
+    WHERE uc.user_id = ? AND uc.circle_id = ?;
   `;
 
-  connection.query(query, [circle_id], (err, results) => {
-    if (err) return res.status(500).json({ message: "Database error.", error: err });
+  connection.query(fetchCharactersQuery, [userId, circle_id], (err, results) => {
+    if (err) return res.status(500).json({ message: "Error fetching characters.", error: err });
 
-    let updates = [];
-    results.forEach(character => {
+    const updates = results.map(character => {
       let happinessChange = 0;
       if (action_type === 'compliment') happinessChange = character.likes_compliment;
       if (action_type === 'help') happinessChange = character.likes_help;
       if (action_type === 'invite') happinessChange = character.likes_invite;
-
-      updates.push([character.character_id, req.user.userId, circle_id, action_type, happinessChange]);
+      return [userId, character.character_id, 1, happinessChange];
     });
 
-    // Insert actions and update happiness scores
-    const actionQuery = "INSERT INTO user_actions (user_id, circle_id, action_type) VALUES ?";
-    const happinessQuery = `
-      INSERT INTO happiness_scores (character_id, round_number, happiness)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE happiness = happiness + VALUES(happiness);
+    const actionQuery = `
+      INSERT INTO user_actions (user_id, circle_id, action_type)
+      VALUES (?, ?, ?)
     `;
 
-    connection.query(actionQuery, [updates.map(u => [req.user.userId, u[1], u[3]])], (err) => {
+    connection.query(actionQuery, [userId, circle_id, action_type], (err) => {
       if (err) return res.status(500).json({ message: "Error recording action.", error: err });
 
-      connection.query(happinessQuery, [updates.map(u => [u[0], 1, u[4]])], (err) => {
-        if (err) return res.status(500).json({ message: "Error updating happiness.", error: err });
+      const happinessQuery = `
+        INSERT INTO happiness_scores (user_id, character_id, round_number, happiness)
+        VALUES ?
+        ON DUPLICATE KEY UPDATE happiness = happiness + VALUES(happiness)
+      `;
 
-        res.json({ message: "Action recorded successfully." });
+      connection.query(happinessQuery, [updates], (err) => {
+        if (err) {
+          console.error("🔥 Error in happiness insert:", err.sqlMessage || err.message);
+          return res.status(500).json({ message: "Error updating happiness.", error: err });
+        }
+
+        // 🔀 Now shuffle characters and save new layout
+        connection.query("SELECT character_id FROM characters", (err, charResults) => {
+          if (err) return res.status(500).json({ message: "Error fetching characters for shuffle." });
+
+          const allCharIds = charResults.map(c => c.character_id);
+          for (let i = allCharIds.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [allCharIds[i], allCharIds[j]] = [allCharIds[j], allCharIds[i]];
+          }
+
+          const userCircleData = [];
+          for (let i = 0; i < 3; i++) {
+            const circleChars = allCharIds.slice(i * 3, i * 3 + 3);
+            circleChars.forEach(charId => {
+              userCircleData.push([userId, i + 1, charId]);
+            });
+          }
+
+          // Delete old layout and insert new one
+          connection.query("DELETE FROM user_circles WHERE user_id = ?", [userId], (err) => {
+            if (err) return res.status(500).json({ message: "Failed to clear old circles." });
+
+            connection.query(
+              "INSERT INTO user_circles (user_id, circle_id, character_id) VALUES ?",
+              [userCircleData],
+              (err) => {
+                if (err) return res.status(500).json({ message: "Failed to save new layout." });
+
+                res.json({ message: "Action recorded and circles shuffled." });
+              }
+            );
+          });
+        });
       });
     });
   });
 });
+
+
+
+
 
 
 
@@ -271,6 +356,16 @@ router.post('/updatePoints', authenticate, (req, res) => {
   });
 });
 
+
+router.post('/resetHappiness', authenticate, (req, res) => {
+  const userId = req.user.userId;
+  const query = `UPDATE happiness_scores SET happiness = 0 WHERE user_id = ? AND round_number = 1`;
+
+  connection.query(query, [userId], (err) => {
+    if (err) return res.status(500).json({ message: "Error resetting happiness", error: err });
+    res.json({ message: "Your happiness scores have been reset." });
+  });
+});
 
 
 
