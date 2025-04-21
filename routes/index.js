@@ -189,35 +189,66 @@ router.get('/logout', (req, res) => {
 
 
 
-// **Game Page - Protected Route**
+// Game Page - Protected Route
 router.get('/game', authenticate, (req, res) => {
   const userId = req.user.userId;
 
-  const query = `
-    SELECT uc.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite,
-           IFNULL(hs.happiness, 0) AS happiness
-    FROM user_circles uc
-    JOIN characters ch ON uc.character_id = ch.character_id
-    LEFT JOIN happiness_scores hs 
-      ON hs.character_id = ch.character_id AND hs.user_id = ? AND hs.round_number = 1
-    WHERE uc.user_id = ?
-    ORDER BY uc.circle_id;
-  `;
-
-  connection.query(query, [userId, userId], (err, results) => {
+  connection.query('SELECT username, current_style FROM users WHERE user_id = ?', [userId], (err, userResults) => {
     if (err) return res.status(500).json({ message: "Database error.", error: err });
 
-    let circles = {};
-    results.forEach(row => {
-      if (!circles[row.circle_id]) {
-        circles[row.circle_id] = { circle_id: row.circle_id, characters: [] };
-      }
-      circles[row.circle_id].characters.push(row);
-    });
+    const { username, current_style } = userResults[0];
 
-    res.render('game', { username: req.user.username, circles: Object.values(circles) });
+    const decoratedUsername = applyStyle(username, current_style);
+
+    const query = `
+      SELECT uc.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite,
+            IFNULL(hs.happiness, 0) AS happiness
+      FROM user_circles uc
+      JOIN characters ch ON uc.character_id = ch.character_id
+      LEFT JOIN happiness_scores hs 
+        ON hs.character_id = ch.character_id AND hs.user_id = ? AND hs.round_number = 1
+      WHERE uc.user_id = ?
+      ORDER BY uc.circle_id;
+    `;
+
+    connection.query(query, [userId, userId], (err, results) => {
+      if (err) return res.status(500).json({ message: "Database error.", error: err });
+
+      let circles = {};
+      results.forEach(row => {
+        if (!circles[row.circle_id]) {
+          circles[row.circle_id] = { circle_id: row.circle_id, characters: [] };
+        }
+        circles[row.circle_id].characters.push(row);
+      });
+
+      res.render('game', {
+        username: decoratedUsername,
+        circles: Object.values(circles),
+        hasStyle: !!current_style //  true if they have a style, false if null
+      });
+          });
   });
 });
+
+// Helper function
+function applyStyle(username, style) {
+  switch (style) {
+    case '⭐ Starred Name':
+      return `⭐${username}⭐`;
+    case '🔥 Fire Name':
+      return `🔥${username}🔥`;
+    case '💎 Diamond Name':
+      return `💎${username}💎`;
+    case '👑 Crown Name':
+      return `👑${username}`;
+    case '🌈 Rainbow Name':
+      return `🌈${username}🌈`;
+    default:
+      return username;
+  }
+}
+
 
 
 
@@ -366,6 +397,58 @@ router.post('/resetHappiness', authenticate, (req, res) => {
     res.json({ message: "Your happiness scores have been reset." });
   });
 });
+
+//Purchase Route
+router.post('/purchase', authenticate, (req, res) => {
+  const userId = req.user.userId;
+  const { itemId } = req.body;
+
+  if (!itemId) {
+    return res.status(400).send("Item ID is required.");
+  }
+
+  // Get item info (price and item_name)
+  connection.query('SELECT item_name, price FROM store_items WHERE item_id = ?', [itemId], (err, results) => {
+    if (err) return res.status(500).send("Database error fetching item.");
+
+    if (results.length === 0) {
+      return res.status(404).send("Item not found.");
+    }
+
+    const { item_name, price } = results[0];
+
+    // Get user points
+    connection.query('SELECT points FROM users WHERE user_id = ?', [userId], (err, userResults) => {
+      if (err) return res.status(500).send("Database error fetching user points.");
+
+      const userPoints = userResults[0].points;
+
+      if (userPoints < price) {
+        return res.send("<script>alert('Not enough points to purchase!'); window.location.href='/store';</script>");
+      }
+
+      // Deduct points and apply style
+      connection.beginTransaction(err => {
+        if (err) return res.status(500).send("Database transaction error.");
+
+        connection.query('UPDATE users SET points = points - ?, current_style = ? WHERE user_id = ?', [price, item_name, userId], (err) => {
+          if (err) return connection.rollback(() => res.status(500).send("Error updating user."));
+
+          connection.query('INSERT INTO purchases (user_id, item_id) VALUES (?, ?)', [userId, itemId], (err) => {
+            if (err) return connection.rollback(() => res.status(500).send("Error recording purchase."));
+
+            connection.commit(err => {
+              if (err) return connection.rollback(() => res.status(500).send("Commit error."));
+              res.send("<script>alert('Style applied successfully!'); window.location.href='/store';</script>");
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+
 
 
 

@@ -1,7 +1,14 @@
 <%- include('./partials/header') %>
 <h1>Store</h1>
+
 <ul>
   <% storeItems.forEach(item => { %>
-    <li><%= item.item_name %> - <%= item.price %> points</li>
+    <li>
+      <strong><%= item.item_name %></strong> - <%= item.price %> points
+      <form action="/purchase" method="POST" style="display:inline;">
+        <input type="hidden" name="itemId" value="<%= item.item_id %>">
+        <button type="submit">Buy</button>
+      </form>
+    </li>
   <% }) %>
 </ul>

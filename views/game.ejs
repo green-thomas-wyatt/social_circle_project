@@ -15,10 +15,9 @@
     </style>
 </head>
 <body>
-    <% - include('./partials/header') %>  
 
-    <h1>Welcome, <%= username %>!</h1>
-    <h2>Select a circle and perform an action:</h2>
+  <h1 class="<%= hasStyle ? 'animated-username' : '' %>">Welcome, <%= username %>!</h1>
+  <h2>Select a circle and perform an action:</h2>
 
     <div id="game-container">
         <% circles.forEach((circle, index) => { %>
