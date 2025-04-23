@@ -5,7 +5,7 @@ body {
   background: #f5f7fa;
   color: #333;
   min-height: 100vh;
-  width: 100%; /* ✅ always stretch full screen */
+  width: 100%; /* always stretch full screen, thank god */
 }
 
 
@@ -27,16 +27,16 @@ h1, h2, h3 {
 header nav {
   background: #00B7FF;
   width: 100%;
-  padding: 20px 0; /* Give NAV real vertical space */
+  padding: 20px 0; 
   margin-bottom: 30px;
-  text-align: center; /* Center everything inside */
+  text-align: center; 
 }
 
 header nav ul {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: inline-flex; /* <==  Key: Inline-Flex to stay centered but not block */
+  display: inline-flex; 
   gap: 20px;
 }
 

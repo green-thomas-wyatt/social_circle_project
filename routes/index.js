@@ -175,7 +175,6 @@ router.post('/login', (req, res) => {
 
     res.cookie("token", token, { httpOnly: true, maxAge: 3600000 }); // Securely store token in a cookie
     
-    // ✅ Fix: Send JSON response instead of redirecting
     res.json({ success: true, redirectUrl: "/game" });
   });
 });
@@ -298,7 +297,7 @@ router.post('/game/action', authenticate, (req, res) => {
           return res.status(500).json({ message: "Error updating happiness.", error: err });
         }
 
-        // 🔀 Now shuffle characters and save new layout
+        // Now shuffle characters and save new layout
         connection.query("SELECT character_id FROM characters", (err, charResults) => {
           if (err) return res.status(500).json({ message: "Error fetching characters for shuffle." });
 
