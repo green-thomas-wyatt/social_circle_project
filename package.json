@@ -20,7 +20,7 @@
     "mysql2": "^3.13.0"
   },
   "devDependencies": {
-    "chai": "^5.2.0",
+    "chai": "^4.3.7",
     "mocha": "^11.1.0"
   }
 }
