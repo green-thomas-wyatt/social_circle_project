@@ -118,11 +118,12 @@ npm test
 
 ## 🐞 Known Issues & TODOs
 
-- [ ] Reset happiness only works for round 1
 - [ ] No account edit features
 - [ ] No admin view or global analytics
 - [ ] Store purchases not yet auto-tested
 - [ ] Logout redirects but doesn’t give a “You’ve been logged out” message
+- [ ] Sign in does not redirect to the game page immediately
+- [ ] When deployed to Azure, the game lags when buttons were clicked.
 
 ---
 
