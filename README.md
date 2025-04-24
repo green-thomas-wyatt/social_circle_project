@@ -29,15 +29,15 @@ Social Circles lets users:
 ## 🔧 Developer Setup Guide
 
 1. **Clone the repo**
-   ```bash
+  
    git clone https://github.com/green-thomas-wyatt/social_circle_project.git
    cd social_circle_project
-   ```
+
 
 2. **Install dependencies**
-   ```bash
+   
    npm install
-   ```
+  
 
 3. **Configure the environment**
    Create a `.env` file with:
@@ -50,14 +50,14 @@ Social Circles lets users:
    ```
 
 4. **Start the server**
-   ```bash
-   npm start
-   ```
+  
+    npm start
+   
 
 5. **Run automated tests**
-   ```bash
+   
    npm test
-   ```
+
 
 ---
 
