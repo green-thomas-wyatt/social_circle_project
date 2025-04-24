@@ -105,9 +105,9 @@ To deploy or edit:
 Automated tests are located in the `/test` folder.
 
 ### Run all tests:
-```bash
+
 npm test
-```
+
 
 ### Includes:
 - Authentication: Signup, login validation
