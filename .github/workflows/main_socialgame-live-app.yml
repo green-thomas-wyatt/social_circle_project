@@ -22,6 +22,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          
+      - name: Install dependencies
+        run: npm install
+
 
       - name: npm install, build, and test
         run: |
@@ -71,4 +75,7 @@ jobs:
           app-name: 'socialgame-live-app'
           slot-name: 'Production'
           package: .
+
+
+
           
