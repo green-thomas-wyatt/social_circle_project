@@ -87,8 +87,10 @@ router.get('/profile', authenticate, (req, res) => {
 // Signup Route
 router.post('/signup', async (req, res) => {
   const { username, password } = req.body;
-  
+  console.log("📝 Signup attempt:", username);
+
   if (!username || !password) {
+    console.error("❌ Missing username or password");
     return res.status(400).json({ message: "Username and password are required." });
   }
 
@@ -98,21 +100,20 @@ router.post('/signup', async (req, res) => {
 
     connection.query(query, [username, hashedPassword], (err, result) => {
       if (err) {
+        console.error("❌ Error inserting user:", err);
         return res.status(500).json({ message: "User already exists or DB error.", error: err });
       }
 
       const userId = result.insertId;
 
-      // Fetch character IDs dynamically from DB
+      // Fetch character IDs for circle initialization
       connection.query("SELECT character_id FROM characters", (err, charResults) => {
         if (err) {
-          console.error("Error fetching characters for new user:", err);
+          console.error("❌ Error fetching characters:", err);
           return res.status(500).json({ message: "Error initializing user data." });
         }
 
         const characterIds = charResults.map(c => c.character_id);
-
-        // Shuffle character IDs
         for (let i = characterIds.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [characterIds[i], characterIds[j]] = [characterIds[j], characterIds[i]];
@@ -120,64 +121,80 @@ router.post('/signup', async (req, res) => {
 
         const userCircleData = [];
         for (let i = 0; i < 3; i++) {
-          const circleCharacters = characterIds.slice(i * 3, i * 3 + 3);
-          circleCharacters.forEach(charId => {
+          const circleChars = characterIds.slice(i * 3, i * 3 + 3);
+          circleChars.forEach(charId => {
             userCircleData.push([userId, i + 1, charId]);
           });
         }
 
-        const insertCirclesQuery = `
-          INSERT INTO user_circles (user_id, circle_id, character_id)
-          VALUES ?
-        `;
-
+        const insertCirclesQuery = `INSERT INTO user_circles (user_id, circle_id, character_id) VALUES ?`;
         connection.query(insertCirclesQuery, [userCircleData], (err) => {
           if (err) {
-            console.error("Error inserting user circles:", err);
+            console.error("❌ Error inserting user circles:", err);
             return res.status(500).json({ message: "Error creating circles." });
           }
 
-          // Success — create JWT and redirect
           const token = jwt.sign({ userId, username, role: "logged_in" }, SECRET_KEY, { expiresIn: "1h" });
 
           res.cookie("token", token, { httpOnly: true, maxAge: 3600000 });
+          console.log("✅ Signup and initialization complete for", username);
           res.redirect('/game');
         });
       });
     });
   } catch (error) {
+    console.error("❌ Signup error:", error);
     res.status(500).json({ message: "Error hashing password.", error });
   }
 });
+
 
 
 // Login Route
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
+  console.log("🔐 Login attempt:", username);
+
   if (!username || !password) {
+    console.error("❌ Missing username or password");
     return res.status(400).json({ message: "Username and password required." });
   }
 
   const query = "SELECT * FROM users WHERE username = ?";
   connection.query(query, [username], async (err, results) => {
-    if (err) return res.status(500).json({ message: "Database error.", error: err });
-    if (results.length === 0) return res.status(401).json({ message: "Invalid username or password." });
+    if (err) {
+      console.error("❌ Database error during login:", err);
+      return res.status(500).json({ message: "Database error.", error: err });
+    }
 
-    const user = results[0];
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-
-    if (!isValidPassword) {
+    if (results.length === 0) {
+      console.warn("⚠️ Login failed: user not found:", username);
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    const token = jwt.sign({ userId: user.user_id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
+    const user = results[0];
+    try {
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
-    res.cookie("token", token, { httpOnly: true, maxAge: 3600000 }); // Securely store token in a cookie
-    
-    res.json({ success: true, redirectUrl: "/game" });
+      if (!isValidPassword) {
+        console.warn("⚠️ Login failed: invalid password for", username);
+        return res.status(401).json({ message: "Invalid username or password." });
+      }
+
+      const token = jwt.sign({ userId: user.user_id, username: user.username, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
+
+      res.cookie("token", token, { httpOnly: true, maxAge: 3600000 });
+      console.log("✅ Login success for", username);
+      res.json({ success: true, redirectUrl: "/game" });
+
+    } catch (error) {
+      console.error("❌ Error validating password:", error);
+      res.status(500).json({ message: "Authentication failed.", error });
+    }
   });
 });
+
 
 
 // Logout Route

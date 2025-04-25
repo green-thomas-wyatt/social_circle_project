@@ -8,17 +8,17 @@ const connection = mysql.createConnection({
   database: process.env.DB_NAME,
   port: 3306,
   ssl: {
-    rejectUnauthorized: false // ✅ Accept self-signed cert
+    rejectUnauthorized: false // Accept self-signed cert
   }
 });
 
 
 connection.connect((err) => {
   if (err) {
-    console.error('❌ MySQL connection failed:', err.stack);
+    console.error(' MySQL connection failed:', err.stack);
     return;
   }
-  console.log('✅ Connected to Azure MySQL as ID', connection.threadId);
+  console.log('Connected to Azure MySQL as ID', connection.threadId);
 });
 
 module.exports = connection;
