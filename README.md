@@ -118,11 +118,13 @@ npm test
 
 ## 🐞 Known Issues & TODOs
 
-- [ ] Reset happiness only works for round 1
 - [ ] No account edit features
 - [ ] No admin view or global analytics
 - [ ] Store purchases not yet auto-tested
 - [ ] Logout redirects but doesn’t give a “You’ve been logged out” message
+- [ ] UI improvements for login/signup page
+- [ ] Page flickering
+
 
 ---
 
