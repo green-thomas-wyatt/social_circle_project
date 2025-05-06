@@ -2,10 +2,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Social Circles Game</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="javascripts/game.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
         .circle { display: inline-block; width: 250px; padding: 20px; border: 2px solid black; margin: 10px; }
@@ -19,65 +19,11 @@
   <h1 class="<%= hasStyle ? 'animated-username' : '' %>">Welcome, <%= username %>!</h1>
   <h2>Select a circle and perform an action:</h2>
 
-    <div id="game-container">
-        <% circles.forEach((circle, index) => { %>
-            <div class="circle" data-circle-id="<%= circle.circle_id %>">
-                <h3>Circle <%= index + 1 %></h3>
-                <% circle.characters.forEach(character => { %>
-                    <p class="character"><%= character.name %> (Happiness: <%= character.happiness %>)</p>
-                <% }); %>
-                <div class="actions">
-                    <button onclick="performAction('<%= circle.circle_id %>', 'compliment')">Give Compliment</button>
-                    <button onclick="performAction('<%= circle.circle_id %>', 'help')">Offer Help</button>
-                    <button onclick="performAction('<%= circle.circle_id %>', 'invite')">Invite to Event</button>  
-                </div>
-            </div>
-        <% }); %>
-    </div>
+    <div id="game-container">hello </div>
 
     <div class="global-actions">
         <button onclick="resetHappiness()">🔁 Reset All Happiness</button>
     </div>
 
-    <script>
-    function performAction(circleId, actionType) {
-      $.post('/game/action', {
-        circle_id: circleId,
-        action_type: actionType
-      }, function(response) {
-        console.log("Action result:", response.message);
-
-        // After action + shuffle, reload from server
-        location.reload();
-      });
-
-      // Also send happiness average for point tracking
-      const happinessElements = document.querySelectorAll('.character');
-      let happinessValues = [];
-
-      happinessElements.forEach(el => {
-        const match = el.innerText.match(/\(Happiness: (-?\d+)\)/);
-        if (match) {
-          happinessValues.push(parseInt(match[1]));
-        }
-      });
-
-      if (happinessValues.length > 0) {
-        const sum = happinessValues.reduce((a, b) => a + b, 0);
-        const average = sum / happinessValues.length;
-
-        $.post('/updatePoints', { average }, function(response) {
-          console.log(response.message);
-        });
-      }
-    }
-
-    function resetHappiness() {
-      $.post('/resetHappiness', {}, function(response) {
-        alert(response.message);
-        location.reload();
-      });
-    }
-    </script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 <%- include('./partials/header') %>
-<h1>Leaderboard</h1>
-<ul>
-  <% leaderboard.forEach(user => { %>
-    <li><%= user.username %> - <%= user.total_points %> points</li>
-    <% }) %>
-</ul>
+  <h1>Leaderboard</h1>
+  <ul>
+    <% leaderboard.forEach(user => { %>
+      <li><%= user.username %> - <%= user.total_points %> points</li>
+      <% }) %>
+  </ul>
+</div>
