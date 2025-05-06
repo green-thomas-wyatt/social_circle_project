@@ -23,6 +23,14 @@ h1, h2, h3 {
   color: #222;
 }
 
+h2 {
+  background-color: #00B7FF; 
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  width: fit-content;
+}
+
 /* HEADER NAVIGATION */
 header nav {
   background: #00B7FF;
