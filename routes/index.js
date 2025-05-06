@@ -26,12 +26,6 @@ router.get('/', (req, res) => {
   res.render('index');  // Render the home page (index.ejs)
 });
 
-
-// Home Page
-router.get('/', function(req, res) {
-  res.render('index', { title: 'Express' });
-});
-
 // Store Page Route
 router.get('/store', authenticate, (req, res) => {
   // Fetch store items from the database
@@ -76,12 +70,105 @@ router.get('/characters', authenticate, (req, res) => {
 
 // Profile Page Route
 router.get('/profile', authenticate, (req, res) => {
-  // Fetch user's profile data from the database
+  const message = req.query.message;
   connection.query('SELECT * FROM users WHERE user_id = ?', [req.user.userId], (err, results) => {
     if (err) return res.status(500).json({ message: "Database error.", error: err });
-    res.render('profile', { username: req.user.username, userData: results[0] });
+    res.render('profile', {
+      username: req.user.username,
+      userData: results[0],
+      message: message
+    });
   });
 });
+
+
+
+router.post('/profile/update-password', authenticate, (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  const userId = req.user.userId;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).send("All fields are required.");
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).send("New passwords do not match.");
+  }
+
+  connection.query('SELECT password_hash FROM users WHERE user_id = ?', [userId], (err, results) => {
+  if (err) {
+    console.error('Database error:', err);
+    return res.status(500).send("Database error occurred");
+  }
+
+  if (results.length === 0) {
+    return res.status(404).send("User not found");
+  }
+
+  bcrypt.compare(currentPassword, results[0].password_hash, (err, isMatch) => {
+    if (err) {
+      console.error('Password comparison error:', err);
+      return res.status(500).send("Error checking password");
+    }
+    
+    if (!isMatch) {
+      return res.status(400).send("Current password is incorrect");
+    }
+
+    bcrypt.hash(newPassword, 10, (err, newHash) => {
+      if (err) {
+        console.error('Password hashing error:', err);
+        return res.status(500).send("Error hashing password");
+      }
+
+      connection.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [newHash, userId], (err) => {
+        if (err) {
+          console.error('Database update error:', err);
+          return res.status(500).send("Failed to update password");
+        }
+        
+        res.redirect('/profile?message=Password updated successfully');
+      });
+    });
+    });
+  });
+});
+
+
+router.post('/profile/update-username', authenticate, (req, res) => {
+  const { newUsername } = req.body;
+  const userId = req.user.userId;
+
+  if (!newUsername || newUsername.trim().length === 0) {
+    return res.status(400).send("Username cannot be empty.");
+  }
+
+  connection.query('SELECT user_id FROM users WHERE username = ?', [newUsername], (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).send("Database error occurred.");
+    }
+
+    if (results.length > 0) {
+      return res.status(400).send("Username is already taken.");
+    }
+
+    connection.query(
+      'UPDATE users SET username = ? WHERE user_id = ?',
+      [newUsername, userId],
+      (err) => {
+        if (err) {
+          console.error('Update error:', err);
+          return res.status(500).send("Failed to update username.");
+        }
+
+        req.user.username = newUsername;
+        res.redirect('/profile?message=Username updated successfully');
+      }
+    );
+  });
+});
+
 
 
 // Signup Route
@@ -151,6 +238,11 @@ router.post('/signup', async (req, res) => {
 
 
 // Login Route
+
+router.get('/login', (req, res) => {
+  res.render('index', { message: req.query.message });
+});
+
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -196,12 +288,13 @@ router.post('/login', (req, res) => {
 });
 
 
-
 // Logout Route
 router.get('/logout', (req, res) => {
-  res.clearCookie("token");  // Clear the JWT token from the cookie
-  res.redirect('/');  // Redirect to the home page (index.ejs)
+  res.clearCookie("token");
+  res.redirect('/login?message=Logged out successfully');
 });
+
+
 
 
 

@@ -182,3 +182,14 @@ pre {
     transform: scale(1.05);
   }
 }
+
+.flash-message {
+  background-color: #d9edf7;
+  color: #31708f;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 20px auto;
+  width: 80%;
+  text-align: center;
+  border: 1px solid #bce8f1;
+}

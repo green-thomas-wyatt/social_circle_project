@@ -1,5 +1,62 @@
 <%- include('./partials/header') %>
+
 <h1>Profile</h1>
-<p>Username: <%= userData.username %></p>
+<% if (typeof message !== 'undefined' && message) { %>     
+      <%= message %>
+<% } %>
+  
+<p>
+    Username: <%= userData.username %>
+    <button onclick="toggleUsernameForm()">Edit</button>
+
+</p>
 <p>Points: <%= userData.points %></p>
-<!-- Add more user profile information here -->
+<p>
+  Password: ••••••••
+  <button onclick="togglePasswordForm()">Edit</button>
+
+</p>
+
+<div id="password-form" class="form-container" style="display: none;">
+    <form action="/profile/update-password" method="POST">
+        <div>
+            <label for="currentPassword">Current Password:</label>
+            <input type="password" id="currentPassword" name="currentPassword" required>
+        </div>
+        <div>
+            <label for="newPassword">New Password:</label>
+            <input type="password" id="newPassword" name="newPassword" required>
+        </div>
+        <div>
+            <label for="confirmPassword">Confirm Password:</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" required>
+        </div>
+        <button type="submit" class="btn-submit">Update Password</button>
+        <button type="button" class="btn-cancel" onclick="togglePasswordForm()">Cancel</button>
+    </form>
+</div>
+
+<div id="username-form" class="form-container" style="display: none;">
+    <form action="/profile/update-username" method="POST">
+      <div>
+        <label for="newUsername">New Username:</label>
+        <input type="text" id="newUsername" name="newUsername" required>
+      </div>
+      <button type="submit" class="btn-submit">Update Username</button>
+      <button type="button" class="btn-cancel" onclick="toggleUsernameForm()">Cancel</button>
+    </form>
+</div>
+  
+
+
+<script>
+    function togglePasswordForm() {
+        const form = document.getElementById('password-form');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleUsernameForm() {
+    const form = document.getElementById('username-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+</script>
