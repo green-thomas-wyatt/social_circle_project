@@ -6,6 +6,7 @@ var jwt = require('jsonwebtoken');
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 require('dotenv').config();
+var functions = require('../functions/index_functions.js'); // Import functions
 
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey";
 
@@ -148,8 +149,6 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-
-
 // Login Route
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -195,15 +194,11 @@ router.post('/login', (req, res) => {
   });
 });
 
-
-
 // Logout Route
 router.get('/logout', (req, res) => {
   res.clearCookie("token");  // Clear the JWT token from the cookie
   res.redirect('/');  // Redirect to the home page (index.ejs)
 });
-
-
 
 // Game Page - Protected Route
 router.get('/game', authenticate, (req, res) => {
@@ -412,63 +407,17 @@ router.post('/resetHappiness', authenticate, (req, res) => {
   });
 });
 
+
 //Purchase Route
-router.post('/purchase', authenticate, (req, res) => {
+router.post('/purchase', authenticate, async (req, res) => {
   const userId = req.user.userId;
   const { itemId } = req.body;
-
-  if (!itemId) {
-    return res.status(400).send("Item ID is required.");
-  }
-
-  // Get item info (price and item_name)
-  connection.query('SELECT item_name, price FROM store_items WHERE item_id = ?', [itemId], (err, results) => {
-    if (err) return res.status(500).send("Database error fetching item.");
-
-    if (results.length === 0) {
-      return res.status(404).send("Item not found.");
-    }
-
-    const { item_name, price } = results[0];
-
-    // Get user points
-    connection.query('SELECT points FROM users WHERE user_id = ?', [userId], (err, userResults) => {
-      if (err) return res.status(500).send("Database error fetching user points.");
-
-      const userPoints = userResults[0].points;
-
-      if (userPoints < price) {
-        return res.send("<script>alert('Not enough points to purchase!'); window.location.href='/store';</script>");
-      }
-
-      // Deduct points and apply style
-      connection.beginTransaction(err => {
-        if (err) return res.status(500).send("Database transaction error.");
-
-        connection.query('UPDATE users SET points = points - ?, current_style = ? WHERE user_id = ?', [price, item_name, userId], (err) => {
-          if (err) return connection.rollback(() => res.status(500).send("Error updating user."));
-
-          connection.query('INSERT INTO purchases (user_id, item_id) VALUES (?, ?)', [userId, itemId], (err) => {
-            if (err) return connection.rollback(() => res.status(500).send("Error recording purchase."));
-
-            connection.commit(err => {
-              if (err) return connection.rollback(() => res.status(500).send("Commit error."));
-              res.send("<script>alert('Style applied successfully!'); window.location.href='/store';</script>");
-            });
-          });
-        });
-      });
-    });
-  });
+  const val = await functions.purchaseItem(userId, itemId,connection);
+  console.log("val " + val);
+  const {status, send} = val;
+  console.log("status" + status);
+  console.log("send" + send);
+  return res.status(Number(status)).send(send);
 });
-
-
-
-
-
-
-
-
-
 
 module.exports = router;
