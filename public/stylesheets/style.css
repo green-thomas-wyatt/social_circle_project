@@ -8,6 +8,9 @@ body {
   width: 100%; /* always stretch full screen, thank god */
 }
 
+.no-top-margin {
+  margin-top: 0;
+}
 
 a {
   color: #00B7FF;
@@ -21,6 +24,18 @@ a:hover {
 h1, h2, h3 {
   margin-top: 20px;
   color: #222;
+}
+
+h2 {
+  background-color: #00B7FF;
+  color: white;
+  padding: 15px 25px;
+  border-radius: 0; /* optional: remove rounded corners */
+  width: 100%;
+  text-align: left; /* or 'center' if you prefer */
+  margin: 40px 0 20px;
+  box-sizing: border-box;
+  font-size: 1.8em;
 }
 
 /* HEADER NAVIGATION */
@@ -181,4 +196,15 @@ pre {
     text-shadow: 0 0 10px #00B7FF, 0 0 20px #00B7FF, 0 0 30px #00B7FF;
     transform: scale(1.05);
   }
+}
+
+.flash-message {
+  background-color: #d9edf7;
+  color: #31708f;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 20px auto;
+  width: 80%;
+  text-align: center;
+  border: 1px solid #bce8f1;
 }
