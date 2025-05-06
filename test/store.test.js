@@ -29,9 +29,6 @@ describe('Store Buying Test', async () => {
   it('Enough points', async () => {
     const res = await functions.purchaseItem(120, 1, connection); //Fire name is 30 points. Only 21 points in the DB
     expect(res.status).to.satisfy(s => [302].includes(s));
-    console.log("==================================================");
-    console.log(res.send);
-    console.log("==================================================");
     expect(res.send).to.include("<script>alert('Style applied successfully!'); window.location.href='/store';</script>");
   });
   resetPoints(); // Reset points to 21 for the next test
