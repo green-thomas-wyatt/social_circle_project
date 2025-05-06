@@ -12,11 +12,11 @@ function performAction(circleId, actionType) {
         },
         function(response) {
             console.log("Action result:", response.message);
+            getVals();
             // After action + shuffle, reload from server
             //info.innerHTML = response;
             //location.reload();
     });
-    getVals();
 
     // Also send happiness average for point tracking
     const happinessElements = document.querySelectorAll('.character');
