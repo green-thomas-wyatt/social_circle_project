@@ -24,11 +24,15 @@ h1, h2, h3 {
 }
 
 h2 {
-  background-color: #00B7FF; 
+  background-color: #00B7FF;
   color: white;
-  padding: 10px;
-  border-radius: 5px;
-  width: fit-content;
+  padding: 15px 25px;
+  border-radius: 0; /* optional: remove rounded corners */
+  width: 100%;
+  text-align: left; /* or 'center' if you prefer */
+  margin: 40px 0 20px;
+  box-sizing: border-box;
+  font-size: 1.8em;
 }
 
 /* HEADER NAVIGATION */
