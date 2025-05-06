@@ -1,0 +1,13 @@
+<% circles.forEach((circle, index) => { %>
+    <div class="circle" data-circle-id="<%= circle.circle_id %>">
+        <h3>Circle <%= index + 1 %></h3>
+        <% circle.characters.forEach(character => { %>
+            <p class="character"><%= character.name %> (Happiness: <%= character.happiness %>)</p>
+        <% }); %>
+        <div class="actions">
+            <button onclick="performAction('<%= circle.circle_id %>', 'compliment')">Give Compliment</button>
+            <button onclick="performAction('<%= circle.circle_id %>', 'help')">Offer Help</button>
+            <button onclick="performAction('<%= circle.circle_id %>', 'invite')">Invite to Event</button>  
+        </div>
+    </div>
+<% }); %>

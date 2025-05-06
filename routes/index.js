@@ -208,43 +208,50 @@ router.get('/logout', (req, res) => {
 // Game Page - Protected Route
 router.get('/game', authenticate, (req, res) => {
   const userId = req.user.userId;
-
   connection.query('SELECT username, current_style FROM users WHERE user_id = ?', [userId], (err, userResults) => {
     if (err) return res.status(500).json({ message: "Database error.", error: err });
 
     const { username, current_style } = userResults[0];
-
     const decoratedUsername = applyStyle(username, current_style);
 
-    const query = `
-      SELECT uc.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite,
-            IFNULL(hs.happiness, 0) AS happiness
-      FROM user_circles uc
-      JOIN characters ch ON uc.character_id = ch.character_id
-      LEFT JOIN happiness_scores hs 
-        ON hs.character_id = ch.character_id AND hs.user_id = ? AND hs.round_number = 1
-      WHERE uc.user_id = ?
-      ORDER BY uc.circle_id;
-    `;
-
-    connection.query(query, [userId, userId], (err, results) => {
-      if (err) return res.status(500).json({ message: "Database error.", error: err });
-
-      let circles = {};
-      results.forEach(row => {
-        if (!circles[row.circle_id]) {
-          circles[row.circle_id] = { circle_id: row.circle_id, characters: [] };
-        }
-        circles[row.circle_id].characters.push(row);
-      });
-
-      res.render('game', {
-        username: decoratedUsername,
-        circles: Object.values(circles),
-        hasStyle: !!current_style //  true if they have a style, false if null
-      });
-          });
+    return res.render('game', {
+      username: decoratedUsername,
+      hasStyle: !!current_style //  true if they have a style, false if null
+    });
   });
+  //const vals = getCircle(userId);  // Fetch circles
+  //res.render('game', vals);
+});
+
+router.get('/game/values', authenticate, (req, res) => {
+  const query = `
+    SELECT uc.circle_id, ch.character_id, ch.name, ch.likes_compliment, ch.likes_help, ch.likes_invite,
+          IFNULL(hs.happiness, 0) AS happiness
+    FROM user_circles uc
+    JOIN characters ch ON uc.character_id = ch.character_id
+    LEFT JOIN happiness_scores hs 
+      ON hs.character_id = ch.character_id AND hs.user_id = ? AND hs.round_number = 1
+    WHERE uc.user_id = ?
+    ORDER BY uc.circle_id;
+  `;
+
+  const userId = req.user.userId;
+  connection.query(query, [userId, userId], (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error.", error: err });
+
+    let circles = {};
+    results.forEach(row => {
+      if (!circles[row.circle_id]) {
+        circles[row.circle_id] = { circle_id: row.circle_id, characters: [] };
+      }
+      circles[row.circle_id].characters.push(row);
+    });
+    console.log("Circles data:", circles);
+    return res.render('game_data', {
+        circles: Object.values(circles)
+      });
+  });
+
 });
 
 // Helper function
@@ -264,9 +271,6 @@ function applyStyle(username, style) {
       return username;
   }
 }
-
-
-
 
 router.post('/game/action', authenticate, (req, res) => {
   const { circle_id, action_type } = req.body;
@@ -351,12 +355,6 @@ router.post('/game/action', authenticate, (req, res) => {
     });
   });
 });
-
-
-
-
-
-
 
 //UPDATE POINTS
 router.post('/updatePoints', authenticate, (req, res) => {
