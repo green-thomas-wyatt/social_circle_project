@@ -8,6 +8,9 @@ body {
   width: 100%; /* always stretch full screen, thank god */
 }
 
+.no-top-margin {
+  margin-top: 0;
+}
 
 a {
   color: #00B7FF;
